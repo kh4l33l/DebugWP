@@ -37,6 +37,9 @@ spl_autoload_register( function ( $class ) {
         'DebugWP_Reader_ProfilePress' => 'includes/readers/class-debugwp-reader-profilepress.php',
         'DebugWP_Reader_Debug_Log'    => 'includes/readers/class-debugwp-reader-debug-log.php',
         'DebugWP_Reader_FuseWP'       => 'includes/readers/class-debugwp-reader-fusewp.php',
+        'DebugWP_ProfilePress_Logger' => 'includes/class-debugwp-profilepress-logger.php',
+        'DebugWP_Stripe_HTTP_Client'  => 'includes/class-debugwp-stripe-http-client.php',
+        'DebugWP_FuseWP_Logger'       => 'includes/class-debugwp-fusewp-logger.php',
     ];
 
     if ( isset( $map[ $class ] ) ) {

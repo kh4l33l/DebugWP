@@ -138,9 +138,11 @@ class DebugWP_Log_Viewer extends WP_List_Table {
 
     public function column_log_type( $item ) {
         $labels = [
-            'http_request'  => 'HTTP Request',
-            'php_error'     => 'PHP Error',
-            'plugin_native' => 'Plugin Log',
+            'http_request'    => 'HTTP Request',
+            'php_error'       => 'PHP Error',
+            'plugin_native'   => 'Plugin Log',
+            'webhook_incoming' => 'Incoming Webhook',
+            'stripe_api'      => 'Stripe API',
         ];
         return esc_html( $labels[ $item['log_type'] ] ?? $item['log_type'] );
     }
@@ -205,6 +207,8 @@ class DebugWP_Log_Viewer extends WP_List_Table {
                 <option value="http_request" <?php selected( $current_type, 'http_request' ); ?>>HTTP Requests</option>
                 <option value="php_error" <?php selected( $current_type, 'php_error' ); ?>>PHP Errors</option>
                 <option value="plugin_native" <?php selected( $current_type, 'plugin_native' ); ?>>Plugin Logs</option>
+                <option value="webhook_incoming" <?php selected( $current_type, 'webhook_incoming' ); ?>>Incoming Webhooks</option>
+                <option value="stripe_api" <?php selected( $current_type, 'stripe_api' ); ?>>Stripe API</option>
             </select>
 
             <select name="severity">

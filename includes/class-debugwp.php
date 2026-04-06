@@ -42,6 +42,13 @@ final class DebugWP {
 
         // Cron — always register so cleanup runs.
         new DebugWP_Cron( $this );
+
+        // ProfilePress logger — always instantiated so the init hook for incoming
+        // webhooks is registered; Stripe SDK injection only fires when debug is enabled.
+        new DebugWP_ProfilePress_Logger( $this );
+
+        // FuseWP logger — traces sync hooks, queue, and field mapping.
+        new DebugWP_FuseWP_Logger( $this );
     }
 
     private function register_supported_plugins() {

@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: DebugWP
- * Description: Centralized error logging and troubleshooting for MailOptin, CycleSave, FuseWP and ProfilePress. Captures HTTP requests, PHP errors, and native plugin logs in one unified viewer.
+ * Description: Extensible centralized error logging and troubleshooting for WordPress plugins. Ships with built-in support for MailOptin, CycleSave, FuseWP and ProfilePress. Third-party plugins can register their own providers via the debugwp_register_providers action.
  * Version:     1.0.0
  * Author:      Ibrahim Nasir
  * License:     GPLv2 or later
@@ -23,25 +23,48 @@ define( 'DEBUGWP_BASENAME', plugin_basename( __FILE__ ) );
 /* ── Autoloader ─────────────────────────────────────────── */
 spl_autoload_register( function ( $class ) {
     $map = [
-        'DebugWP'              => 'includes/class-debugwp.php',
-        'DebugWP_DB'           => 'includes/class-debugwp-db.php',
-        'DebugWP_Settings'     => 'includes/class-debugwp-settings.php',
-        'DebugWP_WP_Config'    => 'includes/class-debugwp-wp-config.php',
-        'DebugWP_HTTP_Logger'  => 'includes/class-debugwp-http-logger.php',
-        'DebugWP_PHP_Logger'   => 'includes/class-debugwp-php-logger.php',
-        'DebugWP_Log_Viewer'   => 'includes/class-debugwp-log-viewer.php',
-        'DebugWP_Ajax'         => 'includes/class-debugwp-ajax.php',
-        'DebugWP_Cron'         => 'includes/class-debugwp-cron.php',
-        'DebugWP_Reader_MailOptin'    => 'includes/readers/class-debugwp-reader-mailoptin.php',
-        'DebugWP_Reader_CycleSave'    => 'includes/readers/class-debugwp-reader-cyclesave.php',
-        'DebugWP_Reader_ProfilePress' => 'includes/readers/class-debugwp-reader-profilepress.php',
-        'DebugWP_Reader_Debug_Log'    => 'includes/readers/class-debugwp-reader-debug-log.php',
-        'DebugWP_Reader_FuseWP'       => 'includes/readers/class-debugwp-reader-fusewp.php',
-        'DebugWP_ProfilePress_Logger' => 'includes/class-debugwp-profilepress-logger.php',
-        'DebugWP_Stripe_HTTP_Client'  => 'includes/class-debugwp-stripe-http-client.php',
-        'DebugWP_FuseWP_Logger'       => 'includes/class-debugwp-fusewp-logger.php',
-        'DebugWP_Cron_UI'             => 'includes/class-debugwp-cron-ui.php',
-        'DebugWP_Cron_Logger'         => 'includes/class-debugwp-cron-logger.php',
+        // Contracts.
+        'DebugWP_Plugin_Provider'      => 'includes/contracts/interface-debugwp-plugin-provider.php',
+        'DebugWP_Plugin_Provider_Base' => 'includes/contracts/class-debugwp-plugin-provider-base.php',
+
+        // Core.
+        'DebugWP'                   => 'includes/class-debugwp.php',
+        'DebugWP_DB'                => 'includes/class-debugwp-db.php',
+        'DebugWP_Settings'          => 'includes/class-debugwp-settings.php',
+        'DebugWP_WP_Config'         => 'includes/class-debugwp-wp-config.php',
+        'DebugWP_HTTP_Logger'       => 'includes/class-debugwp-http-logger.php',
+        'DebugWP_Mail_Logger'       => 'includes/class-debugwp-mail-logger.php',
+        'DebugWP_Webhook_Logger'    => 'includes/class-debugwp-webhook-logger.php',
+        'DebugWP_PHP_Logger'        => 'includes/class-debugwp-php-logger.php',
+        'DebugWP_Log_Viewer'        => 'includes/class-debugwp-log-viewer.php',
+        'DebugWP_Ajax'              => 'includes/class-debugwp-ajax.php',
+        'DebugWP_Cron'              => 'includes/class-debugwp-cron.php',
+        'DebugWP_Cron_UI'           => 'includes/class-debugwp-cron-ui.php',
+        'DebugWP_Cron_Logger'       => 'includes/class-debugwp-cron-logger.php',
+        'DebugWP_Dashboard_Widget'  => 'includes/class-debugwp-dashboard-widget.php',
+        'DebugWP_Site_Health'       => 'includes/class-debugwp-site-health.php',
+        'DebugWP_Environment'       => 'includes/class-debugwp-environment.php',
+        'DebugWP_CLI'               => 'includes/class-debugwp-cli.php',
+
+        // Core reader (reads WP debug.log for all providers).
+        'DebugWP_Reader_Debug_Log' => 'includes/readers/class-debugwp-reader-debug-log.php',
+
+        // Built-in providers (auto-discovered, but listed here for autoloading).
+        'DebugWP_Provider_MailOptin'    => 'includes/providers/mailoptin/class-mailoptin-provider.php',
+        'DebugWP_Provider_CycleSave'    => 'includes/providers/cyclesave/class-cyclesave-provider.php',
+        'DebugWP_Provider_ProfilePress' => 'includes/providers/profilepress/class-profilepress-provider.php',
+        'DebugWP_Provider_FuseWP'       => 'includes/providers/fusewp/class-fusewp-provider.php',
+
+        // Provider readers.
+        'DebugWP_Reader_MailOptin'    => 'includes/providers/mailoptin/class-reader.php',
+        'DebugWP_Reader_CycleSave'    => 'includes/providers/cyclesave/class-reader.php',
+        'DebugWP_Reader_ProfilePress' => 'includes/providers/profilepress/class-reader.php',
+        'DebugWP_Reader_FuseWP'       => 'includes/providers/fusewp/class-reader.php',
+
+        // Provider loggers.
+        'DebugWP_ProfilePress_Logger' => 'includes/providers/profilepress/class-logger.php',
+        'DebugWP_Stripe_HTTP_Client'  => 'includes/providers/profilepress/class-stripe-http-client.php',
+        'DebugWP_FuseWP_Logger'       => 'includes/providers/fusewp/class-logger.php',
     ];
 
     if ( isset( $map[ $class ] ) ) {
@@ -67,14 +90,9 @@ register_shutdown_function( function () {
         return;
     }
 
-    // Map file path to a supported plugin slug.
+    // Map file path to a supported plugin slug via provider registry.
     $plugin_slug  = null;
-    $plugin_paths = [
-        'profilepress' => [ 'plugins/wp-user-avatar/', 'plugins/profilepress-pro/' ],
-        'cyclesave'    => [ 'plugins/cyclesave/', 'plugins/cyclesave-pro/' ],
-        'mailoptin'    => [ 'plugins/mailoptin/' ],
-        'fusewp'       => [ 'plugins/fusewp/', 'plugins/fusewp-pro/' ],
-    ];
+    $plugin_paths = class_exists( 'DebugWP' ) ? DebugWP::get_all_paths() : [];
     foreach ( $plugin_paths as $slug => $paths ) {
         foreach ( $paths as $path ) {
             if ( strpos( $error['file'], $path ) !== false ) {
@@ -108,4 +126,12 @@ register_shutdown_function( function () {
 /* ── Boot ────────────────────────────────────────────────── */
 add_action( 'plugins_loaded', function () {
     DebugWP::get_instance();
+
+    // Run DB migrations if needed (without requiring reactivation).
+    DebugWP_DB::maybe_upgrade();
 } );
+
+/* ── WP-CLI ─────────────────────────────────────────────── */
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    WP_CLI::add_command( 'debugwp', 'DebugWP_CLI' );
+}

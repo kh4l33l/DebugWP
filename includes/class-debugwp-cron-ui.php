@@ -37,16 +37,22 @@ class DebugWP_Cron_UI {
 
     /**
      * Map of plugin slug => array of hook-name substrings to match.
-     * Cron hooks often use short prefixes (e.g. mo_ for MailOptin, ppress for ProfilePress).
+     * Built dynamically from registered providers.
      */
     private static function get_hook_patterns() {
-        return [
-            'mailoptin'    => [ 'mailoptin', 'mo_' ],
-            'cyclesave'    => [ 'cyclesave' ],
-            'profilepress' => [ 'profilepress', 'ppress' ],
-            'fusewp'       => [ 'fusewp' ],
-            'debugwp'      => [ 'debugwp' ],
-        ];
+        $patterns = [ 'debugwp' => [ 'debugwp' ] ];
+
+        if ( class_exists( 'DebugWP' ) ) {
+            $instance = DebugWP::get_instance();
+            foreach ( $instance->get_providers() as $slug => $provider ) {
+                $hook_patterns = $provider->get_cron_hook_patterns();
+                if ( ! empty( $hook_patterns ) ) {
+                    $patterns[ $slug ] = $hook_patterns;
+                }
+            }
+        }
+
+        return $patterns;
     }
 
     /**
@@ -284,7 +290,7 @@ class DebugWP_Cron_UI {
     /**
      * Return supported-plugin cron events whose next-run time is in the past.
      */
-    private static function get_overdue_events() {
+    public static function get_overdue_events() {
         $crons   = _get_cron_array();
         $overdue = [];
         $now     = time();
@@ -294,11 +300,13 @@ class DebugWP_Cron_UI {
         }
 
         // Consider an event "overdue" if its scheduled time is more than 10 minutes ago.
+        // Exclude timestamp <= 10 — these are manually-triggered "Run Now" events
+        // (scheduled at timestamp=1 to force immediate execution).
         $threshold = $now - ( 10 * MINUTE_IN_SECONDS );
 
         foreach ( $crons as $timestamp => $hooks ) {
-            if ( $timestamp > $threshold ) {
-                continue; // Not overdue.
+            if ( $timestamp > $threshold || $timestamp <= 10 ) {
+                continue; // Not overdue (or manually queued).
             }
             foreach ( $hooks as $hook => $instances ) {
                 if ( ! self::is_supported_hook( $hook ) ) {
@@ -377,8 +385,9 @@ class DebugWP_Cron_UI {
 
                 foreach ( $instances as $sig => $data ) {
                     $found = true;
-                    $schedule_name = ! empty( $data['schedule'] ) ? $data['schedule'] : 'One-off';
-                    $is_overdue    = $timestamp < ( $now - 10 * MINUTE_IN_SECONDS );
+                    $schedule_name  = ! empty( $data['schedule'] ) ? $data['schedule'] : 'One-off';
+                    $is_manual_run  = $timestamp <= 10;
+                    $is_overdue     = ! $is_manual_run && $timestamp < ( $now - 10 * MINUTE_IN_SECONDS );
 
                     // Build row-action links.
                     $edit_url = add_query_arg( [
@@ -413,10 +422,15 @@ class DebugWP_Cron_UI {
                         </td>
                         <td><?php echo esc_html( $plugin_label ); ?></td>
                         <td>
-                            <?php echo esc_html( gmdate( 'Y-m-d H:i:s', $timestamp ) ); ?>
-                            <br><small><?php echo esc_html( self::time_from_now( $timestamp ) ); ?></small>
-                            <?php if ( $is_overdue ) : ?>
-                                <br><span style="color:#d63638;font-weight:600;">⚠ Overdue</span>
+                            <?php if ( $is_manual_run ) : ?>
+                                <em>Queued</em>
+                                <br><span style="color:#2271b1;font-weight:600;">⏳ Pending (manual run)</span>
+                            <?php else : ?>
+                                <?php echo esc_html( gmdate( 'Y-m-d H:i:s', $timestamp ) ); ?>
+                                <br><small><?php echo esc_html( self::time_from_now( $timestamp ) ); ?></small>
+                                <?php if ( $is_overdue ) : ?>
+                                    <br><span style="color:#d63638;font-weight:600;">⚠ Overdue</span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </td>
                         <td><?php echo esc_html( $schedule_name ); ?></td>

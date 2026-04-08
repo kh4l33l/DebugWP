@@ -14,7 +14,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$SCRIPT_DIR"
 PLUGIN_NAME="debugwp"
-BUILD_OUTPUT_DIR="$(cd "${SCRIPT_DIR}/../build" && pwd)"
+BUILD_OUTPUT_DIR="${SCRIPT_DIR}/../build"
+
+# Ensure output directory exists
+mkdir -p "$BUILD_OUTPUT_DIR"
+BUILD_OUTPUT_DIR="$(cd "$BUILD_OUTPUT_DIR" && pwd)"
 
 # Help message
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
@@ -26,13 +30,6 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo ""
     echo "Output: ${BUILD_OUTPUT_DIR}/${PLUGIN_NAME}.zip"
     exit 0
-fi
-
-# Verify build output directory exists
-if [[ ! -d "$BUILD_OUTPUT_DIR" ]]; then
-    echo "ERROR: Build output directory not found: $BUILD_OUTPUT_DIR"
-    echo "Make sure build/ directory exists"
-    exit 1
 fi
 
 echo "========================================="
@@ -47,28 +44,31 @@ echo ""
 ZIP_FILE="${BUILD_OUTPUT_DIR}/${PLUGIN_NAME}.zip"
 
 # Remove old build if it exists
+FOLDER_DIR="${BUILD_OUTPUT_DIR}/${PLUGIN_NAME}"
+if [[ -d "$FOLDER_DIR" ]]; then
+    echo "Removing old build folder: $FOLDER_DIR"
+    rm -rf "$FOLDER_DIR"
+fi
 if [[ -f "$ZIP_FILE" ]]; then
-    echo "Removing old build: $ZIP_FILE"
+    echo "Removing old zip: $ZIP_FILE"
     rm "$ZIP_FILE"
 fi
 
-echo "Creating archive: $ZIP_FILE"
+echo "Creating build..."
 
-# Create the zip excluding common unnecessary files
-cd "$(dirname "$PLUGIN_DIR")"
-zip -r "$ZIP_FILE" "$PLUGIN_NAME" \
-    --exclude \
-    "$PLUGIN_NAME/.DS_Store" \
-    "$PLUGIN_NAME/.git/*" \
-    "$PLUGIN_NAME/.gitignore" \
-    "$PLUGIN_NAME/build.sh" \
-    "$PLUGIN_NAME/node_modules/*" \
-    "$PLUGIN_NAME/.env*" \
-    "$PLUGIN_NAME/*.md" \
-    > /dev/null
+# Copy plugin files to build folder, excluding dev files
+rsync -a --exclude='.DS_Store' --exclude='.git' --exclude='.gitignore' \
+    --exclude='build.sh' --exclude='node_modules' --exclude='.env*' \
+    --exclude='*.md' \
+    "$PLUGIN_DIR/" "$FOLDER_DIR/"
+
+# Create zip from the folder
+cd "$BUILD_OUTPUT_DIR"
+zip -rq "$ZIP_FILE" "$PLUGIN_NAME" > /dev/null
 
 echo ""
 echo "✓ Build complete!"
+echo "  Folder:  $FOLDER_DIR"
 echo "  Archive: $ZIP_FILE"
 
 # Show file size

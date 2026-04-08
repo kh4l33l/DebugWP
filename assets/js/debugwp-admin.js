@@ -145,7 +145,7 @@
         }
 
         return '<tr class="debugwp-detail-row" data-log-id="' + id + '">'
-            + '<td colspan="6">'
+            + '<td colspan="9">' 
             + '<div class="debugwp-detail-tabs">' + tabs + '</div>'
             + '<div class="debugwp-detail-panels">' + panels + '</div>'
             + '</td></tr>';
@@ -188,7 +188,7 @@
 
     /* ── Delete single log ───────────────────────────────── */
 
-    $(document).on('click', '.debugwp-delete-log', function (e) {
+    $(document).on('click', '.debugwp-delete-log, .debugwp-delete-single', function (e) {
         e.preventDefault();
 
         if (!confirm('Delete this log entry?')) {

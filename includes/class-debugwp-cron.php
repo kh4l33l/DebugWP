@@ -34,6 +34,7 @@ class DebugWP_Cron {
         $this->auto_disable_expired();
         $this->cleanup_old_logs();
         $this->trim_to_max_entries();
+        $this->maybe_send_cron_alert_email();
     }
 
     /**
@@ -93,5 +94,105 @@ class DebugWP_Cron {
             "DELETE FROM {$table} ORDER BY created_at ASC LIMIT %d",
             $excess
         ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+    }
+
+    /**
+     * Send a cron-alert email if notifications are enabled and there are
+     * overdue events or recent cron errors. Uses a transient to ensure
+     * at most one email per hour.
+     */
+    private function maybe_send_cron_alert_email() {
+        $settings = $this->core->get_settings();
+        if ( empty( $settings['cron_email_enabled'] ) ) {
+            return;
+        }
+
+        // Throttle: skip if we already sent within the last hour.
+        if ( get_transient( 'debugwp_cron_email_sent' ) ) {
+            return;
+        }
+
+        $sections = [];
+
+        // 1) Overdue cron events.
+        $overdue = DebugWP_Cron_UI::get_overdue_events();
+        if ( ! empty( $overdue ) ) {
+            $lines = [];
+            foreach ( $overdue as $ev ) {
+                $ago     = human_time_diff( $ev['timestamp'], time() );
+                $lines[] = sprintf( '  • %s — overdue by %s', $ev['hook'], $ago );
+            }
+            $sections[] = "Overdue Cron Events (" . count( $overdue ) . "):\n" . implode( "\n", $lines );
+        }
+
+        // 2) Recent cron errors logged in the last hour.
+        global $wpdb;
+        $table  = $wpdb->prefix . 'debugwp_logs';
+        $errors = $wpdb->get_results( $wpdb->prepare(
+            "SELECT plugin_slug, message, created_at FROM {$table}
+             WHERE log_type = 'cron' AND severity = 'error' AND created_at >= %s
+             ORDER BY created_at DESC LIMIT 20",
+            gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS )
+        ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+        if ( ! empty( $errors ) ) {
+            $lines = [];
+            foreach ( $errors as $err ) {
+                $lines[] = sprintf( '  • [%s] %s — %s', $err->plugin_slug, $err->created_at, $err->message );
+            }
+            $sections[] = "Recent Cron Errors (" . count( $errors ) . "):\n" . implode( "\n", $lines );
+        }
+
+        // Nothing to report.
+        if ( empty( $sections ) ) {
+            return;
+        }
+
+        $to      = ! empty( $settings['cron_email_address'] ) ? $settings['cron_email_address'] : get_option( 'admin_email' );
+        $site    = get_bloginfo( 'name' );
+        $subject = sprintf( '[DebugWP] Cron Alert — %s', $site );
+        $body    = "DebugWP has detected cron issues on {$site} (" . home_url() . "):\n\n"
+                 . implode( "\n\n", $sections )
+                 . "\n\nView details: " . admin_url( 'admin.php?page=debugwp-cron' )
+                 . "\n\nThis email is sent at most once per hour while issues persist.";
+
+        /**
+         * Filter the cron alert email before it is sent.
+         *
+         * @param array $email {
+         *     Email arguments.
+         *
+         *     @type string $to      Recipient email address.
+         *     @type string $subject Email subject line.
+         *     @type string $body    Plain-text email body.
+         *     @type string $headers Optional headers (default empty).
+         * }
+         * @param array $context {
+         *     Raw data that produced the email.
+         *
+         *     @type array $overdue  Overdue cron events (from get_overdue_events).
+         *     @type array $errors   Recent cron error rows from the log table.
+         *     @type array $settings Current DebugWP settings.
+         * }
+         */
+        $email = apply_filters( 'debugwp_cron_alert_email', [
+            'to'      => $to,
+            'subject' => $subject,
+            'body'    => $body,
+            'headers' => '',
+        ], [
+            'overdue'  => $overdue,
+            'errors'   => $errors ?? [],
+            'settings' => $settings,
+        ] );
+
+        // Allow the filter to suppress the email by returning a falsy value.
+        if ( empty( $email ) ) {
+            return;
+        }
+
+        wp_mail( $email['to'], $email['subject'], $email['body'], $email['headers'] );
+
+        set_transient( 'debugwp_cron_email_sent', 1, HOUR_IN_SECONDS );
     }
 }

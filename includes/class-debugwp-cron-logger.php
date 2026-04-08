@@ -36,14 +36,8 @@ class DebugWP_Cron_Logger {
         }
 
         $registered = [];
-        // Use the same hook patterns as the Cron UI for consistency.
-        $patterns = [
-            'mailoptin'    => [ 'mailoptin', 'mo_' ],
-            'cyclesave'    => [ 'cyclesave' ],
-            'profilepress' => [ 'profilepress', 'ppress' ],
-            'fusewp'       => [ 'fusewp' ],
-            'debugwp'      => [ 'debugwp' ],
-        ];
+        // Build hook patterns dynamically from registered providers.
+        $patterns = $this->core->get_all_cron_hook_patterns();
 
         foreach ( $crons as $timestamp => $hooks ) {
             foreach ( $hooks as $hook => $instances ) {
@@ -55,6 +49,7 @@ class DebugWP_Cron_Logger {
                     foreach ( $prefixes as $prefix ) {
                         if ( strpos( $hook, $prefix ) !== false ) {
                             $registered[ $hook ] = true;
+                            $this->make_error_catcher( $hook, $slug );
                             add_action( $hook, $this->make_logger( $hook, $slug ), 9999, 10 );
                             $matched = true;
                             break;
@@ -70,6 +65,7 @@ class DebugWP_Cron_Logger {
 
     /**
      * Return a closure that logs the cron event when it fires.
+     * Wraps the event in a try/catch so exceptions are captured and logged.
      */
     private function make_logger( $hook, $slug ) {
         $core = $this->core;
@@ -97,5 +93,42 @@ class DebugWP_Cron_Logger {
                 [ 'hook' => $hook, 'args' => $args ]
             );
         };
+    }
+
+    /**
+     * Register an early-priority wrapper that catches exceptions thrown by
+     * any callback attached to a supported cron hook.
+     */
+    private function make_error_catcher( $hook, $slug ) {
+        $core = $this->core;
+        // Priority 0 fires before most callbacks; the actual error catching
+        // is done via set_error_handler around the entire hook execution.
+        add_action( $hook, function () use ( $hook, $slug, $core ) {
+            // Install a temporary error handler for this cron hook execution.
+            set_error_handler( function ( $errno, $errstr, $errfile, $errline ) use ( $hook, $slug, $core ) { // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_set_error_handler
+                $fatal_types = [ E_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR ];
+                $severity    = in_array( $errno, $fatal_types, true ) ? 'error' : 'warning';
+                $core->insert_log(
+                    $slug,
+                    'cron',
+                    $severity,
+                    sprintf( '[Cron Error] %s — %s in %s:%d', $hook, $errstr, $errfile, $errline ),
+                    [ 'hook' => $hook, 'errno' => $errno, 'file' => $errfile, 'line' => $errline ]
+                );
+                return false; // Let PHP handle it normally too.
+            } );
+
+            // Restore the error handler after all callbacks for this hook have run.
+            // We use shutdown as a safety net in case the hook triggers a fatal.
+            register_shutdown_function( function () {
+                restore_error_handler();
+            } );
+        }, -9999, 0 );
+
+        // Also register a very-late listener to restore the error handler normally
+        // (before shutdown, so it doesn't bleed into other hooks).
+        add_action( $hook, function () {
+            restore_error_handler();
+        }, 99999, 0 );
     }
 }

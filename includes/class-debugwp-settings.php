@@ -12,6 +12,9 @@ class DebugWP_Settings {
     /** @var DebugWP */
     private $core;
 
+    /** @var DebugWP_Environment */
+    private $environment;
+
     public function __construct( DebugWP $core ) {
         $this->core = $core;
         add_action( 'admin_menu', [ $this, 'register_menu' ] );
@@ -62,6 +65,17 @@ class DebugWP_Settings {
             'manage_options',
             'debugwp-cron',
             [ 'DebugWP_Cron_UI', 'render_cron_page' ]
+        );
+
+        // Add Environment submenu
+        $this->environment = new DebugWP_Environment( $this->core );
+        add_submenu_page(
+            'debugwp',
+            'Environment — DebugWP',
+            'Environment',
+            'manage_options',
+            'debugwp-env',
+            [ $this->environment, 'render_page' ]
         );
     }
 
@@ -214,6 +228,30 @@ class DebugWP_Settings {
                     </table>
                 </div>
 
+                <!-- Email Notifications -->
+                <div class="debugwp-card">
+                    <h2>Email Notifications</h2>
+                    <p class="description">Receive email alerts when cron events are overdue or fail. Checked during the hourly DebugWP cleanup cron.</p>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><label for="cron_email_enabled">Enable notifications</label></th>
+                            <td>
+                                <label class="debugwp-toggle">
+                                    <input type="checkbox" name="settings[cron_email_enabled]" id="cron_email_enabled" value="1" <?php checked( ! empty( $settings['cron_email_enabled'] ) ); ?>>
+                                    <span>Send email when cron events are overdue or fail</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label for="cron_email_address">Notification email</label></th>
+                            <td>
+                                <input type="email" name="settings[cron_email_address]" id="cron_email_address" value="<?php echo esc_attr( $settings['cron_email_address'] ?? '' ); ?>" class="regular-text" placeholder="<?php echo esc_attr( get_option( 'admin_email' ) ); ?>">
+                                <p class="description">Leave blank to use the site admin email (<code><?php echo esc_html( get_option( 'admin_email' ) ); ?></code>). Sent at most once per hour to avoid flooding.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
                 <?php submit_button( 'Save Settings' ); ?>
             </form>
         </div>
@@ -233,7 +271,7 @@ class DebugWP_Settings {
             $viewer->prepare_items();
         }
         ?>
-        <div class="wrap debugwp-wrap">
+        <div class="wrap debugwp-wrap debugwp-wrap-full">
             <h1>DebugWP — Log Viewer</h1>
             <?php $viewer->render(); ?>
         </div>
@@ -329,8 +367,10 @@ class DebugWP_Settings {
         if ( isset( $_POST['settings'] ) && is_array( $_POST['settings'] ) ) {
             $raw = wp_unslash( $_POST['settings'] );
             $settings = [
-                'max_entries'    => max( 100, min( 50000, absint( $raw['max_entries'] ?? 5000 ) ) ),
-                'retention_days' => max( 1, min( 90, absint( $raw['retention_days'] ?? 7 ) ) ),
+                'max_entries'        => max( 100, min( 50000, absint( $raw['max_entries'] ?? 5000 ) ) ),
+                'retention_days'     => max( 1, min( 90, absint( $raw['retention_days'] ?? 7 ) ) ),
+                'cron_email_enabled' => ! empty( $raw['cron_email_enabled'] ) ? 1 : 0,
+                'cron_email_address' => isset( $raw['cron_email_address'] ) ? sanitize_email( $raw['cron_email_address'] ) : '',
             ];
             update_option( 'debugwp_settings', $settings );
         }
@@ -366,6 +406,23 @@ class DebugWP_Settings {
             echo '<strong>DebugWP:</strong> Debug logging is active for: <strong>' . esc_html( implode( ', ', $labels ) ) . '</strong>';
             echo ' — <a href="' . esc_url( admin_url( 'admin.php?page=debugwp-logs' ) ) . '">View Logs</a>';
             echo '</p></div>';
+        }
+
+        // Show overdue cron warnings on all DebugWP pages.
+        $screen = get_current_screen();
+        if ( $screen && strpos( $screen->id, 'debugwp' ) !== false ) {
+            $overdue = DebugWP_Cron_UI::get_overdue_events();
+            if ( ! empty( $overdue ) ) {
+                $count = count( $overdue );
+                echo '<div class="notice notice-warning"><p>';
+                printf(
+                    '<strong>DebugWP:</strong> %d cron %s overdue (scheduled time passed without firing). This may indicate WP-Cron is not running reliably.',
+                    $count,
+                    $count === 1 ? 'event is' : 'events are'
+                );
+                echo ' <a href="' . esc_url( admin_url( 'admin.php?page=debugwp-cron' ) ) . '">View Cron Events</a>';
+                echo '</p></div>';
+            }
         }
     }
 }

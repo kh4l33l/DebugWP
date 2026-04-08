@@ -36,6 +36,8 @@ class DebugWP_Log_Viewer extends WP_List_Table {
             'log_type'    => 'Type',
             'severity'    => 'Severity',
             'message'     => 'Message',
+            'hit_count'   => 'Hits',
+            'actions'     => 'Actions',
         ];
     }
 
@@ -77,10 +79,12 @@ class DebugWP_Log_Viewer extends WP_List_Table {
             $params[] = sanitize_key( wp_unslash( $_GET['severity'] ) );
         }
 
-        // Search.
+        // Search (message + context).
         if ( ! empty( $_GET['s'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
-            $where[]  = 'message LIKE %s';
-            $params[] = '%' . $wpdb->esc_like( sanitize_text_field( wp_unslash( $_GET['s'] ) ) ) . '%';
+            $search_term = '%' . $wpdb->esc_like( sanitize_text_field( wp_unslash( $_GET['s'] ) ) ) . '%';
+            $where[]  = '(message LIKE %s OR context LIKE %s)';
+            $params[] = $search_term;
+            $params[] = $search_term;
         }
 
         $where_sql = ! empty( $where ) ? 'WHERE ' . implode( ' AND ', $where ) : '';
@@ -138,13 +142,27 @@ class DebugWP_Log_Viewer extends WP_List_Table {
 
     public function column_log_type( $item ) {
         $labels = [
-            'http_request'    => 'HTTP Request',
-            'php_error'       => 'PHP Error',
-            'plugin_native'   => 'Plugin Log',
+            'http_request'     => 'HTTP Request',
+            'php_error'        => 'PHP Error',
+            'plugin_native'    => 'Plugin Log',
             'webhook_incoming' => 'Incoming Webhook',
-            'stripe_api'      => 'Stripe API',
+            'stripe_api'       => 'Stripe API',
+            'email'            => 'Email',
+            'cron'             => 'Cron',
         ];
         return esc_html( $labels[ $item['log_type'] ] ?? $item['log_type'] );
+    }
+
+    public function column_hit_count( $item ) {
+        $count = (int) ( $item['hit_count'] ?? 1 );
+        if ( $count <= 1 ) {
+            return '<span class="debugwp-hit-count">1</span>';
+        }
+        $last = ! empty( $item['last_seen'] ) && $item['last_seen'] !== '0000-00-00 00:00:00'
+            ? wp_date( 'M j, g:i:s A', strtotime( $item['last_seen'] ) )
+            : '';
+        $title = $last ? sprintf( 'Last seen: %s', $last ) : '';
+        return '<span class="debugwp-hit-count debugwp-hit-count-high" title="' . esc_attr( $title ) . '">' . esc_html( $count ) . '×</span>';
     }
 
     public function column_severity( $item ) {
@@ -159,12 +177,20 @@ class DebugWP_Log_Viewer extends WP_List_Table {
             $message .= '&hellip;';
         }
 
-        $has_context = ! empty( $item['context'] ) && $item['context'] !== 'null';
-        $toggle      = $has_context
-            ? ' <button type="button" class="button button-small debugwp-toggle-detail" data-id="' . (int) $item['id'] . '">Details</button>'
-            : '';
+        return '<span class="debugwp-message">' . $message . '</span>';
+    }
 
-        return '<span class="debugwp-message">' . $message . '</span>' . $toggle;
+    public function column_actions( $item ) {
+        $buttons = '';
+
+        $has_context = ! empty( $item['context'] ) && $item['context'] !== 'null';
+        if ( $has_context ) {
+            $buttons .= '<button type="button" class="button button-small debugwp-toggle-detail" data-id="' . (int) $item['id'] . '">Details</button> ';
+        }
+
+        $buttons .= '<button type="button" class="button button-small debugwp-delete-single" data-id="' . (int) $item['id'] . '" title="Delete">Delete</button>';
+
+        return $buttons;
     }
 
     public function column_default( $item, $name ) {
@@ -209,6 +235,8 @@ class DebugWP_Log_Viewer extends WP_List_Table {
                 <option value="plugin_native" <?php selected( $current_type, 'plugin_native' ); ?>>Plugin Logs</option>
                 <option value="webhook_incoming" <?php selected( $current_type, 'webhook_incoming' ); ?>>Incoming Webhooks</option>
                 <option value="stripe_api" <?php selected( $current_type, 'stripe_api' ); ?>>Stripe API</option>
+                <option value="email" <?php selected( $current_type, 'email' ); ?>>Email</option>
+                <option value="cron" <?php selected( $current_type, 'cron' ); ?>>Cron</option>
             </select>
 
             <select name="severity">
@@ -266,7 +294,7 @@ class DebugWP_Log_Viewer extends WP_List_Table {
 
         // Hidden template for detail expansion.
         echo '<script type="text/html" id="tmpl-debugwp-detail-row">';
-        echo '<tr class="debugwp-detail-row"><td colspan="6"><pre class="debugwp-context">{{data.context}}</pre></td></tr>';
+        echo '<tr class="debugwp-detail-row"><td colspan="9"><pre class="debugwp-context">{{data.context}}</pre></td></tr>';
         echo '</script>';
     }
 
@@ -274,13 +302,14 @@ class DebugWP_Log_Viewer extends WP_List_Table {
      * Render native plugin log entries with sorting and pagination.
      */
     private function render_native_logs( $slug ) {
-        $readers = [
-            'mailoptin'    => 'DebugWP_Reader_MailOptin',
-            'cyclesave'    => 'DebugWP_Reader_CycleSave',
-            'profilepress' => 'DebugWP_Reader_ProfilePress',
-            'fusewp'       => 'DebugWP_Reader_FuseWP',
-            'debug_log'    => 'DebugWP_Reader_Debug_Log',
-        ];
+        // Build the reader map dynamically from registered providers.
+        $readers = [ 'debug_log' => 'DebugWP_Reader_Debug_Log' ];
+        foreach ( $this->core->get_providers() as $provider_slug => $provider ) {
+            $reader_class = $provider->get_reader_class();
+            if ( $reader_class ) {
+                $readers[ $provider_slug ] = $reader_class;
+            }
+        }
 
         if ( ! isset( $readers[ $slug ] ) ) {
             echo '<p>No native reader for this plugin.</p>';

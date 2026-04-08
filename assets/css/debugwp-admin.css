@@ -115,6 +115,16 @@
 
 /* ── Log viewer ────────────────────────────────────────── */
 
+.debugwp-wrap-full .wp-list-table { table-layout: fixed; }
+.debugwp-wrap-full .wp-list-table .column-cb { width: 30px; }
+.debugwp-wrap-full .wp-list-table .column-created_at { width: 140px; }
+.debugwp-wrap-full .wp-list-table .column-plugin_slug { width: 110px; }
+.debugwp-wrap-full .wp-list-table .column-log_type { width: 110px; }
+.debugwp-wrap-full .wp-list-table .column-severity { width: 90px; }
+.debugwp-wrap-full .wp-list-table .column-hit_count { width: 55px; text-align: center; }
+.debugwp-wrap-full .wp-list-table .column-actions { width: 140px; white-space: nowrap; }
+.debugwp-wrap-full .wp-list-table .column-message { width: auto; }
+
 .debugwp-viewer-tabs {
     margin-bottom: 16px;
 }

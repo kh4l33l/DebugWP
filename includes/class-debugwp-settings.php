@@ -31,7 +31,7 @@ class DebugWP_Settings {
             'debugwp',
             [ $this, 'render_settings_page' ],
             'dashicons-admin-tools',
-            81
+            2
         );
 
         add_submenu_page(
@@ -53,6 +53,16 @@ class DebugWP_Settings {
         );
 
         add_action( "load-{$logs_hook}", [ $this, 'register_screen_options' ] );
+
+        // Add Cron submenu
+        add_submenu_page(
+            'debugwp',
+            'Cron — DebugWP',
+            'Cron',
+            'manage_options',
+            'debugwp-cron',
+            [ 'DebugWP_Cron_UI', 'render_cron_page' ]
+        );
     }
 
     public function register_screen_options() {
@@ -172,6 +182,10 @@ class DebugWP_Settings {
                                         Enabled since <strong><?php echo esc_html( wp_date( 'M j, Y g:i A', $enabled_at ) ); ?></strong>
                                         — auto-disables in <strong><?php echo esc_html( round( $remaining, 1 ) ); ?> hours</strong>
                                     </p>
+                                    <p style="margin-top:6px;">
+                                        <button type="submit" name="debugwp_reset_timer" value="<?php echo esc_attr( $slug ); ?>" class="button button-small">Reset Timer (48h)</button>
+                                        <button type="submit" name="debugwp_extend_timer" value="<?php echo esc_attr( $slug ); ?>" class="button button-small">Extend +24h</button>
+                                    </p>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -239,6 +253,28 @@ class DebugWP_Settings {
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die( 'Unauthorized.' );
+        }
+
+        // Reset timer — restart 48h countdown.
+        if ( ! empty( $_POST['debugwp_reset_timer'] ) ) {
+            $reset_slug = sanitize_key( wp_unslash( $_POST['debugwp_reset_timer'] ) );
+            if ( $this->core->is_debug_enabled( $reset_slug ) ) {
+                update_option( "debugwp_{$reset_slug}_enabled_at", time() );
+            }
+            wp_safe_redirect( admin_url( 'admin.php?page=debugwp&debugwp-updated=1' ) );
+            exit;
+        }
+
+        // Extend timer — add 24 hours to the current enabled_at.
+        if ( ! empty( $_POST['debugwp_extend_timer'] ) ) {
+            $extend_slug = sanitize_key( wp_unslash( $_POST['debugwp_extend_timer'] ) );
+            if ( $this->core->is_debug_enabled( $extend_slug ) ) {
+                $current_at = (int) get_option( "debugwp_{$extend_slug}_enabled_at", time() );
+                // Push enabled_at forward by 24h so the 48h window starts later.
+                update_option( "debugwp_{$extend_slug}_enabled_at", $current_at + ( 24 * HOUR_IN_SECONDS ) );
+            }
+            wp_safe_redirect( admin_url( 'admin.php?page=debugwp&debugwp-updated=1' ) );
+            exit;
         }
 
         // Restore backup.

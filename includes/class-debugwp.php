@@ -28,6 +28,7 @@ final class DebugWP {
         if ( is_admin() ) {
             new DebugWP_Settings( $this );
             new DebugWP_Ajax( $this );
+            DebugWP_Cron_UI::init();
         }
 
         // HTTP logger — only boot if at least one plugin debug is active (it is verbose).
@@ -49,6 +50,9 @@ final class DebugWP {
 
         // FuseWP logger — traces sync hooks, queue, and field mapping.
         new DebugWP_FuseWP_Logger( $this );
+
+        // Cron logger — logs when supported-plugin cron events fire.
+        new DebugWP_Cron_Logger( $this );
     }
 
     private function register_supported_plugins() {

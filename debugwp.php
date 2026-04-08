@@ -40,6 +40,8 @@ spl_autoload_register( function ( $class ) {
         'DebugWP_ProfilePress_Logger' => 'includes/class-debugwp-profilepress-logger.php',
         'DebugWP_Stripe_HTTP_Client'  => 'includes/class-debugwp-stripe-http-client.php',
         'DebugWP_FuseWP_Logger'       => 'includes/class-debugwp-fusewp-logger.php',
+        'DebugWP_Cron_UI'             => 'includes/class-debugwp-cron-ui.php',
+        'DebugWP_Cron_Logger'         => 'includes/class-debugwp-cron-logger.php',
     ];
 
     if ( isset( $map[ $class ] ) ) {

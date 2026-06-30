@@ -10,6 +10,25 @@
 
     /* ── Detail row toggle ───────────────────────────────── */
 
+    $(document).on('click', '.debugwp-message-toggle', function (e) {
+        e.preventDefault();
+        var $btn = $(this);
+        var $wrapper = $btn.closest('.debugwp-message-wrapper');
+        var $truncated = $wrapper.find('.debugwp-message-text');
+        var $full = $wrapper.find('.debugwp-message-full');
+        var state = $btn.data('state');
+
+        if (state === 'collapsed') {
+            $truncated.hide();
+            $full.show();
+            $btn.text('Show less').data('state', 'expanded');
+        } else {
+            $full.hide();
+            $truncated.show();
+            $btn.text('Show all').data('state', 'collapsed');
+        }
+    });
+
     $(document).on('click', '.debugwp-toggle-detail', function (e) {
         e.preventDefault();
 
@@ -68,6 +87,7 @@
         var hasSummary = isObj && (context.html_summary || context.api_error);
         var hasHtml   = isObj && context.response_body && isHtmlBody(context.response_body);
         var hasText   = isObj && context.html_body;
+        var hasEmailBody = isObj && typeof context.email_body === 'string' && context.email_body.length;
 
         // Build tabs.
         var tabs = '';
@@ -128,6 +148,25 @@
             panels += '<div class="debugwp-tab-panel" data-tab="summary">' + summaryContent + '</div>';
         }
 
+        // Email tab — show captured wp_mail() body content.
+        if (hasEmailBody) {
+            tabs += '<button type="button" class="debugwp-tab-btn" data-tab="email">Email</button>';
+            var emailContent = '';
+
+            if (context.subject) {
+                emailContent += '<div class="debugwp-summary-meta"><strong>Subject:</strong> ' + escapeHtml(context.subject) + '</div>';
+            }
+
+            if (context.body_format === 'html' || looksLikeHtml(context.email_body)) {
+                emailContent += '<iframe class="debugwp-email-preview" sandbox="" srcdoc="' + escapeAttr(context.email_body) + '"></iframe>';
+                emailContent += '<h4>Email Source</h4><pre class="debugwp-email-body">' + escapeHtml(context.email_body) + '</pre>';
+            } else {
+                emailContent += '<pre class="debugwp-email-body">' + escapeHtml(context.email_body) + '</pre>';
+            }
+
+            panels += '<div class="debugwp-tab-panel" data-tab="email">' + emailContent + '</div>';
+        }
+
         // JSON tab — always shown.
         tabs += '<button type="button" class="debugwp-tab-btn" data-tab="json">Raw JSON</button>';
         var jsonStr = isObj ? JSON.stringify(context, null, 2) : String(context);
@@ -170,6 +209,10 @@
 
     function isHtmlBody(str) {
         return typeof str === 'string' && (str.indexOf('<html') !== -1 || str.indexOf('<!DOCTYPE') !== -1 || str.indexOf('<!doctype') !== -1);
+    }
+
+    function looksLikeHtml(str) {
+        return typeof str === 'string' && /<[a-z][\s\S]*>/i.test(str);
     }
 
     function severityFromStatus(code) {

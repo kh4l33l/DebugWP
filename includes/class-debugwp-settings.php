@@ -137,6 +137,7 @@ class DebugWP_Settings {
                             <th scope="row"><label for="wp_debug">WP_DEBUG</label></th>
                             <td>
                                 <label class="debugwp-toggle">
+                                    <input type="hidden" name="wp_config[WP_DEBUG]" value="0">
                                     <input type="checkbox" name="wp_config[WP_DEBUG]" id="wp_debug" value="1" <?php checked( ! empty( $wp_config['WP_DEBUG'] ) ); ?>>
                                     <span>Enable WordPress debug mode</span>
                                 </label>
@@ -146,6 +147,7 @@ class DebugWP_Settings {
                             <th scope="row"><label for="wp_debug_log">WP_DEBUG_LOG</label></th>
                             <td>
                                 <label class="debugwp-toggle">
+                                    <input type="hidden" name="wp_config[WP_DEBUG_LOG]" value="0">
                                     <input type="checkbox" name="wp_config[WP_DEBUG_LOG]" id="wp_debug_log" value="1" <?php checked( ! empty( $wp_config['WP_DEBUG_LOG'] ) ); ?>>
                                     <span>Log errors to <code>wp-content/debug.log</code></span>
                                 </label>
@@ -155,6 +157,7 @@ class DebugWP_Settings {
                             <th scope="row"><label for="wp_debug_display">WP_DEBUG_DISPLAY</label></th>
                             <td>
                                 <label class="debugwp-toggle debugwp-toggle-danger">
+                                    <input type="hidden" name="wp_config[WP_DEBUG_DISPLAY]" value="0">
                                     <input type="checkbox" name="wp_config[WP_DEBUG_DISPLAY]" id="wp_debug_display" value="1" <?php checked( ! empty( $wp_config['WP_DEBUG_DISPLAY'] ) ); ?>>
                                     <span>Display errors on screen</span>
                                 </label>
@@ -165,6 +168,7 @@ class DebugWP_Settings {
                             <th scope="row"><label for="script_debug">SCRIPT_DEBUG</label></th>
                             <td>
                                 <label class="debugwp-toggle">
+                                    <input type="hidden" name="wp_config[SCRIPT_DEBUG]" value="0">
                                     <input type="checkbox" name="wp_config[SCRIPT_DEBUG]" id="script_debug" value="1" <?php checked( ! empty( $wp_config['SCRIPT_DEBUG'] ) ); ?>>
                                     <span>Use unminified core JS/CSS files</span>
                                 </label>

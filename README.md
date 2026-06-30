@@ -10,6 +10,7 @@ DebugWP uses a **provider-based architecture** — each supported plugin lives i
 - **CycleSave**
 - **MailOptin**
 - **FuseWP**
+- **CrawlWP** (mihdan-index-now / mihdan-index-now-pro)
 
 Adding support for a new plugin is as simple as creating a new provider folder.
 
@@ -72,6 +73,7 @@ includes/
 │   ├── interface-debugwp-plugin-provider.php   # Provider interface
 │   └── class-debugwp-plugin-provider-base.php  # Abstract base class
 ├── providers/
+│   ├── crawlwp/       # CrawlWP provider + license logger + reader
 │   ├── cyclesave/     # CycleSave provider + reader
 │   ├── fusewp/        # FuseWP provider + logger + reader
 │   ├── mailoptin/     # MailOptin provider + reader

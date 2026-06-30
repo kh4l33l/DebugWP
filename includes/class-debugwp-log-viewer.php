@@ -154,6 +154,10 @@ class DebugWP_Log_Viewer extends WP_List_Table {
     }
 
     public function column_hit_count( $item ) {
+        if ( 'email' === ( $item['log_type'] ?? '' ) ) {
+            return '<span class="debugwp-hit-count" title="Email logs are always stored separately">&mdash;</span>';
+        }
+
         $count = (int) ( $item['hit_count'] ?? 1 );
         if ( $count <= 1 ) {
             return '<span class="debugwp-hit-count">1</span>';
@@ -172,12 +176,25 @@ class DebugWP_Log_Viewer extends WP_List_Table {
     }
 
     public function column_message( $item ) {
-        $message = esc_html( mb_substr( $item['message'], 0, 200 ) );
-        if ( mb_strlen( $item['message'] ) > 200 ) {
-            $message .= '&hellip;';
+        $message = $item['message'];
+        $len     = mb_strlen( $message );
+        $limit   = 200;
+
+        if ( $len <= $limit ) {
+            return '<span class="debugwp-message">' . esc_html( $message ) . '</span>';
         }
 
-        return '<span class="debugwp-message">' . $message . '</span>';
+        $truncated = mb_substr( $message, 0, $limit );
+
+        return sprintf(
+            '<div class="debugwp-message-wrapper">' .
+                '<span class="debugwp-message-text">%s&hellip;</span> ' .
+                '<span class="debugwp-message-full" style="display:none;">%s</span>' .
+                '<a href="#" class="debugwp-message-toggle" data-state="collapsed">Show all</a>' .
+            '</div>',
+            esc_html( $truncated ),
+            esc_html( $message )
+        );
     }
 
     public function column_actions( $item ) {
@@ -396,11 +413,27 @@ class DebugWP_Log_Viewer extends WP_List_Table {
 
         foreach ( $page_entries as $entry ) {
             $sev = esc_attr( $entry['severity'] );
+            $message = $entry['message'];
+            $len     = mb_strlen( $message );
+            $limit   = 500;
+
             echo '<tr>';
             echo '<td>' . esc_html( $entry['datetime'] ) . '</td>';
             echo '<td><span class="debugwp-severity debugwp-severity-' . $sev . '">' . esc_html( ucfirst( $entry['severity'] ) ) . '</span></td>';
             echo '<td>' . esc_html( $entry['source'] ) . '</td>';
-            echo '<td><span class="debugwp-message">' . esc_html( mb_substr( $entry['message'], 0, 500 ) ) . '</span></td>';
+
+            if ( $len <= $limit ) {
+                echo '<td><span class="debugwp-message">' . esc_html( $message ) . '</span></td>';
+            } else {
+                $truncated = mb_substr( $message, 0, $limit );
+                echo '<td>';
+                echo '<div class="debugwp-message-wrapper">';
+                echo '<span class="debugwp-message-text">' . esc_html( $truncated ) . '&hellip;</span> ';
+                echo '<span class="debugwp-message-full" style="display:none;">' . esc_html( $message ) . '</span>';
+                echo '<a href="#" class="debugwp-message-toggle" data-state="collapsed">Show all</a>';
+                echo '</div>';
+                echo '</td>';
+            }
             echo '</tr>';
         }
 

@@ -144,9 +144,40 @@
     max-width: 180px;
 }
 
-.debugwp-message {
+.debugwp-message-wrapper {
+    position: relative;
+    line-height: 1.5;
+}
+
+.debugwp-message,
+.debugwp-message-text,
+.debugwp-message-full {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.debugwp-message-toggle {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 11px;
+    text-decoration: none;
+    background: #f0f0f1;
+    color: #2271b1;
+    padding: 0 4px;
+    border-radius: 2px;
+    border: 1px solid #dcdcde;
+    vertical-align: middle;
+}
+
+.debugwp-message-toggle:hover {
+    background: #dcdcde;
+    color: #135e96;
+}
+
+.debugwp-message-toggle:focus {
+    box-shadow: none;
+    outline: none;
 }
 
 /* ── Detail expansion row ──────────────────────────────── */
@@ -168,6 +199,29 @@
     max-height: 400px;
     overflow-y: auto;
     margin: 8px 0 0;
+}
+
+.debugwp-email-body {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 8px 0 0;
+}
+
+.debugwp-email-preview {
+    width: 100%;
+    min-height: 320px;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    background: #fff;
+    margin: 8px 0 12px;
 }
 
 /* ── Cloudflare identifier badges ──────────────────────── */

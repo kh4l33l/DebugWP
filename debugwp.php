@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DebugWP
  * Description: Extensible centralized error logging and troubleshooting for WordPress plugins. Ships with built-in support for MailOptin, CycleSave, FuseWP and ProfilePress. Third-party plugins can register their own providers via the debugwp_register_providers action.
- * Version:     1.0.0
+ * Version:     1.0.3
  * Author:      Ibrahim Nasir
  * License:     GPLv2 or later
  * Text Domain: debugwp
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'DEBUGWP_VERSION', '1.0.0' );
+define( 'DEBUGWP_VERSION', '1.0.3' );
 define( 'DEBUGWP_FILE', __FILE__ );
 define( 'DEBUGWP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEBUGWP_URL', plugin_dir_url( __FILE__ ) );
@@ -54,17 +54,20 @@ spl_autoload_register( function ( $class ) {
         'DebugWP_Provider_CycleSave'    => 'includes/providers/cyclesave/class-cyclesave-provider.php',
         'DebugWP_Provider_ProfilePress' => 'includes/providers/profilepress/class-profilepress-provider.php',
         'DebugWP_Provider_FuseWP'       => 'includes/providers/fusewp/class-fusewp-provider.php',
+        'DebugWP_Provider_CrawlWP'      => 'includes/providers/crawlwp/class-crawlwp-provider.php',
 
         // Provider readers.
         'DebugWP_Reader_MailOptin'    => 'includes/providers/mailoptin/class-reader.php',
         'DebugWP_Reader_CycleSave'    => 'includes/providers/cyclesave/class-reader.php',
         'DebugWP_Reader_ProfilePress' => 'includes/providers/profilepress/class-reader.php',
         'DebugWP_Reader_FuseWP'       => 'includes/providers/fusewp/class-reader.php',
+        'DebugWP_Reader_CrawlWP'      => 'includes/providers/crawlwp/class-reader.php',
 
         // Provider loggers.
         'DebugWP_ProfilePress_Logger' => 'includes/providers/profilepress/class-logger.php',
         'DebugWP_Stripe_HTTP_Client'  => 'includes/providers/profilepress/class-stripe-http-client.php',
         'DebugWP_FuseWP_Logger'       => 'includes/providers/fusewp/class-logger.php',
+        'DebugWP_CrawlWP_Logger'      => 'includes/providers/crawlwp/class-logger.php',
     ];
 
     if ( isset( $map[ $class ] ) ) {

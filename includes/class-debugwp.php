@@ -244,7 +244,7 @@ final class DebugWP {
     /* ── Log insertion helper ───────────────────────────── */
 
     /**
-     * Insert a log entry. Identical entries (same slug + type + severity + message)
+     * Insert a log entry. Identical non-email entries (same slug + type + severity + message)
      * within the last 5 minutes are deduplicated — the existing row's hit_count
      * and last_seen are updated instead of inserting a duplicate.
      */
@@ -258,26 +258,28 @@ final class DebugWP {
         $message_clean = sanitize_text_field( mb_substr( $message, 0, 65000 ) );
         $now           = current_time( 'mysql' );
 
-        // Deduplication: look for a matching entry in the last 5 minutes.
-        $cutoff   = gmdate( 'Y-m-d H:i:s', time() - 5 * MINUTE_IN_SECONDS );
-        $existing = $wpdb->get_row( $wpdb->prepare(
-            "SELECT id FROM {$table}
-             WHERE plugin_slug = %s AND log_type = %s AND severity = %s AND message = %s AND created_at >= %s
-             ORDER BY created_at DESC LIMIT 1",
-            $slug_clean,
-            $type_clean,
-            $severity_clean,
-            $message_clean,
-            $cutoff
-        ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-
-        if ( $existing ) {
-            $wpdb->query( $wpdb->prepare(
-                "UPDATE {$table} SET hit_count = hit_count + 1, last_seen = %s WHERE id = %d",
-                $now,
-                $existing->id
+        if ( 'email' !== $type_clean ) {
+            // Deduplication: look for a matching entry in the last 5 minutes.
+            $cutoff   = gmdate( 'Y-m-d H:i:s', time() - 5 * MINUTE_IN_SECONDS );
+            $existing = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id FROM {$table}
+                 WHERE plugin_slug = %s AND log_type = %s AND severity = %s AND message = %s AND created_at >= %s
+                 ORDER BY created_at DESC LIMIT 1",
+                $slug_clean,
+                $type_clean,
+                $severity_clean,
+                $message_clean,
+                $cutoff
             ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-            return;
+
+            if ( $existing ) {
+                $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$table} SET hit_count = hit_count + 1, last_seen = %s WHERE id = %d",
+                    $now,
+                    $existing->id
+                ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                return;
+            }
         }
 
         $result = $wpdb->insert(
